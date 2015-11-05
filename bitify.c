@@ -1,22 +1,21 @@
 #include<stdio.h>
 #include<utf8proc.h>
 
-int argparse(int len, char **a, int *index)
+int argparse(int len, char **a, int *mode)
 {
 	int i;
-	int mode = 0;
 	for (i=1; i<len; i++) {
 		if (a[i][0] == '-') {
-			(*index)++;
-			if (a[i][1] == 'x')
-				mode |= 1;
-			else if (a[i][1] == 's')
-				mode |= 2;
-			else if (a[i][1] == 'h')
-				mode |= 4;
+			if (a[i][1] == 'x') // 00000001 == HEX
+				(*mode) |= 1;
+			else if (a[i][1] == 's') // 00000010 == SPACES
+				(*mode) |= 2;
+			else if (a[i][1] == 'h') // 00000100 == HELP
+				(*mode) |= 4;
 		}
+		else return i;
 	}
-	return mode;
+	return i;
 }
 
 void bitify(char *line, int mode)
@@ -31,22 +30,22 @@ void bitify(char *line, int mode)
 			else
 				byte[7-i] = '0';
 		line++;
-		if (mode & 2)
-			printf("%s ", byte);
-		else
-			printf("%s", byte);
-	}
-	char c = ' ';
-	char byte[8];
-	for (i=0; i<8; i++)
-		if ((c>>i) & 1)
-			byte[7-i] = '1';
-		else
-			byte[7-i] = '0';
-	if (mode & 2)
-		printf("%s ", byte);
-	else
 		printf("%s", byte);
+		if (mode & 2)
+			printf(" ");
+	}
+	if (!(mode & 8)) {
+		char c = ' ';
+		char byte[8];
+		for (i=0; i<8; i++)
+			if ((c>>i) & 1)
+				byte[7-i] = '1';
+			else
+				byte[7-i] = '0';
+		printf("%s", byte);
+		if (mode & 2)
+			printf(" ");
+	}
 }
 
 void hexify(char *line, int mode)
@@ -62,11 +61,12 @@ void hexify(char *line, int mode)
 			printf("%c", hex[c&mask]);
 		line++;
 	}
-	printf("%c", hex[(' '>>4)&mask]);
-	if (mode & 2)
-		printf("%c ", hex[' '&mask]);
-	else
+	if (!(mode & 8)) {
+		printf("%c", hex[(' '>>4)&mask]);
 		printf("%c", hex[' '&mask]);
+		if (mode & 2)
+			printf(" ");
+	}
 }
 
 void usage()
@@ -93,18 +93,20 @@ int main(int argc, char **argv)
 		usage();
 		return 1;
 	}
-	// mode 0 = bitify (default), mode 1 = hexify
-	int i = 1;
-	int mode = argparse(argc, argv, &i);
+	int mode = 0;
+	int i = argparse(argc, argv, &mode);
 	if (mode & 4) {
 		usage();
 		return 0;
 	}
-	for (; i<argc; i++)
+	for (; i<argc; i++) {
+		if (i+1 == argc)
+			mode |= 8; // 00001000 == LAST ARG
 		if (mode & 1)
 			hexify(argv[i], mode);
 		else
 			bitify(argv[i], mode);
+	}
 	printf("\n");
 	return 0;
 }
